@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <div id="root"></div>
+</body>
+<!-- This setup is not suitable for production. -->
+<!-- Only use it in development! -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script async src="https://ga.jspm.io/npm:es-module-shims@1.7.0/dist/es-module-shims.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react?dev",
+    "react-dom/client": "https://esm.sh/react-dom/client?dev"
+  }
+}
+</script>
+<script type="text/babel" data-type="module">
+import React, { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+
+import { useState } from 'react';
+
+const BOARD_SIZE = 15;
+
+function Square({ value, onSquareClick }) {
+  return (
+    <button className="square" onClick={onSquareClick} disabled={value !== null}>
+      {value === 'B' ? '●' : value === 'W' ? '○' : ''}
+    </button>
+  );
+}
+
+function Board({ isBlackNext, board, onPlay }) {
+  function handleClick(i) {
+    if (calculateWinner(board) || board[i]) {
+      return;
+    }
+    const nextBoard = board.slice();
+    nextBoard[i] = isBlackNext ? 'B' : 'W';
+    onPlay(nextBoard);
+  }
+
+  const winner = calculateWinner(board);
+  let status;
+  if (winner) {
+    status = `Winner: ${winner === 'B' ? 'Black' : 'White'}`;
+  } else {
+    status = `Next player: ${isBlackNext ? 'Black' : 'White'}`;
+  }
+
+  return (
+    <>
+      <div className="status">{status}</div>
+      <div className="board-rows">
+        {Array.from({ length: BOARD_SIZE }, (_, row) => (
+          <div className="board-row" key={row}>
+            {Array.from({ length: BOARD_SIZE }, (_, col) => (
+              <Square
+                key={col}
+                value={board[row * BOARD_SIZE + col]}
+                onSquareClick={() => handleClick(row * BOARD_SIZE + col)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+let App = function Game() {
+  const [history, setHistory] = useState([Array(BOARD_SIZE * BOARD_SIZE).fill(null)]);
+  const [currentMove, setCurrentMove] = useState(0);
+  const isBlackNext = currentMove % 2 === 0;
+  const currentBoard = history[currentMove];
+
+  function handlePlay(nextBoard) {
+    const nextHistory = [...history.slice(0, currentMove + 1), nextBoard];
+    setHistory(nextHistory);
+    setCurrentMove(nextHistory.length - 1);
+  }
+
+  function jumpTo(nextMove) {
+    setCurrentMove(nextMove);
+  }
+
+  const moves = history.map((board, move) => {
+    let description;
+    if (move > 0) {
+      description = `Go to move #${move}`;
+    } else {
+      description = 'Go to game start';
+    }
+    return (
+      <li key={move}>
+        <button onClick={() => jumpTo(move)}>{description}</button>
+      </li>
+    );
+  });
+
+  return (
+    <div className="game">
+      <div className="game-board">
+        <Board isBlackNext={isBlackNext} board={currentBoard} onPlay={handlePlay} />
+      </div>
+      <div className="game-info">
+        <ol>{moves}</ol>
+      </div>
+    </div>
+  );
+}
+
+function calculateWinner(board) {
+  const directions = [
+    { rowOffset: 1, colOffset: 0 }, // vertical
+    { rowOffset: 0, colOffset: 1 }, // horizontal
+    { rowOffset: 1, colOffset: 1 }, // diagonal \
+    { rowOffset: 1, colOffset: -1 } // diagonal /
+  ];
+
+  const playerSymbols = ['B', 'W'];
+  for (const symbol of playerSymbols) {
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        if (board[row * BOARD_SIZE + col] === symbol) {
+          for (const { rowOffset, colOffset } of directions) {
+            let count = 1;
+            for (let i = 1; i < 5; i++) {
+              const newRow = row + i * rowOffset;
+              const newCol = col + i * colOffset;
+              if (
+                newRow >= 0 &&
+                newRow < BOARD_SIZE &&
+                newCol >= 0 &&
+                newCol < BOARD_SIZE &&
+                board[newRow * BOARD_SIZE + newCol] === symbol
+              ) {
+                count++;
+              } else {
+                break;
+              }
+            }
+            for (let i = 1; i < 5; i++) {
+              const newRow = row - i * rowOffset;
+              const newCol = col - i * colOffset;
+              if (
+                newRow >= 0 &&
+                newRow < BOARD_SIZE &&
+                newCol >= 0 &&
+                newCol < BOARD_SIZE &&
+                board[newRow * BOARD_SIZE + newCol] === symbol
+              ) {
+                count++;
+              } else {
+                break;
+              }
+            }
+            if (count >= 5) {
+              return symbol;
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+const root = createRoot(document.getElementById('root'));
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+</script>
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
+  margin: 20px;
+  padding: 0;
+}
+
+.square {
+  background: #fff;
+  border: 1px solid #999;
+  float: left;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 34px;
+  height: 34px;
+  margin-right: 1px;
+  margin-bottom: 1px;
+  padding: 0;
+  text-align: center;
+  width: 34px;
+}
+
+.board-row:after {
+  clear: both;
+  content: '';
+  display: table;
+}
+
+.board-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.board-row {
+  display: flex;
+}
+
+.status {
+  margin-bottom: 10px;
+}
+
+.game {
+  display: flex;
+  flex-direction: row;
+}
+
+.game-info {
+  margin-left: 20px;
+}
+
+</style>
+</html>
